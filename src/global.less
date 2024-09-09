@@ -1,0 +1,48 @@
+.mainMenuGroupTitle {
+  font-size: 12px;
+  margin-top: 20px;
+  cursor: default;
+}
+
+.mainMenuGroupTitle:hover {
+  background: none;
+}
+
+.ant-menu .ant-menu-item-disabled {
+  cursor: default;
+}
+
+// 覆盖侧边栏菜单样式
+.ant-pro-sider-menu {
+  .ant-menu-item {
+    .main-menu-item {
+      max-width: 100%;
+
+      .main-menu-link {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex-grow: 1;
+        flex-shrink: 1;
+      }
+
+      .main-menu-action {
+        display: block;
+        flex-shrink: 0;
+        flex-grow: 0;
+      }
+    }
+
+    &:hover {
+      .main-menu-item .main-menu-action {
+        display: block;
+      }
+    }
+  }
+
+  .ant-menu-item-selected {
+    .main-menu-item .main-menu-action {
+      display: block;
+    }
+  }
+}
