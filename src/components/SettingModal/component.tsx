@@ -61,6 +61,7 @@ const SettingModal: React.FC<SettingModalProps> = ({
     const reader = new FileReader();
     reader.onload = async (event) => {
       const data = JSON.parse(event?.target?.result as string);
+      
       const dataTransfer = new LocalDataTransfer();
       await dataTransfer.import(data);
       // 刷新页面
@@ -126,11 +127,16 @@ const SettingModal: React.FC<SettingModalProps> = ({
           <h3>Import</h3>
           <Dragger
             multiple={false}
-            onChange={(info) => {
-              if (info.file.status === 'done') {
-                handleImport(info.file.originFileObj);
-              }
+            customRequest={(info) => { 
+              handleImport(info.file);
+              console.log(info.file);
             }}
+            // onChange={(info) => {
+            //   if (info.file.status === 'done') {
+            //     console.log('123');
+            //     handleImport(info.file.originFileObj);
+            //   }
+            // }}
           >
             <p className="ant-upload-drag-icon">
               <InboxOutlined />
