@@ -41,6 +41,7 @@ export default defineConfig({
     //   component: './Table',
     // },
   ],
+  history: { type: 'hash' },
   esbuildMinifyIIFE: true,
   npmClient: 'npm',
 });
