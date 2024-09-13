@@ -125,7 +125,7 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
   }, [currentAssistantMessage]);
 
   const sidebarTrigger = (
-    <TerminalIcon style={{ fontSize: '18px', color: '#999' }} />
+    <TerminalIcon className={styles.mainChatRightSidebarTrigger} />
   );
 
   const sendMsg = async (msg: string) => {
@@ -164,7 +164,7 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
   };
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout className={styles.chatLayout}>
       <Layout className={styles.mainChatLayout}>
         <Header className={styles.mainChatLayoutHeader}>
           {botId ? (

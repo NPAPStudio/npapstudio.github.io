@@ -1,10 +1,16 @@
-.settingModalContent {
+.settingModal {
   padding: 0 !important;
 
-  .settingModalMenu {
-    width: 200px;
-    border-right: 1px solid rgba(5, 5, 5, 6%) !important;
+  .settingModalMainContainer {
+    height: 60vh;
+    display: flex;
+
+    .settingModalMenu {
+      width: 200px;
+      border-right: 1px solid rgba(5, 5, 5, 6%) !important;
+    }
   }
+
 }
 
 .modelItem {
@@ -13,4 +19,18 @@
 
 .modelItem input {
   width: 30%;
+}
+@media screen and (max-width: 768px) {
+
+  .settingModal {
+    .settingModalMainContainer {
+        .settingModalMenu {
+            width: 35%;
+          }
+    }
+  }
+
+  .modelItem input {
+    width: 50%;
+  }
 }

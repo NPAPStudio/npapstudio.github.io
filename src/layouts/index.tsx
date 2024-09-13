@@ -135,6 +135,7 @@ export default () => {
 
   return (
     <ProLayout
+      className={styles.mainLayout}
       siderWidth={240}
       contentStyle={{ padding: 0 }}
       menuHeaderRender={menuHeaderRender}

@@ -22,7 +22,7 @@ export default function MessageList({ messages }: { messages: MessageData[] }) {
           key={index}
           className={styles.chatItem}
         >
-          {msg.isUser ? '' : <Avatar size={36} icon={<UserOutlined />} />}
+          {msg.isUser ? '' : <Avatar size={36} icon={<UserOutlined />} className={ styles.avatar} />}
           <span
             className={`${styles.chatContent} ${
               msg.isUser ? styles.userContent : styles.assistantContent

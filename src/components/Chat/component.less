@@ -1,22 +1,57 @@
-.mainChatLayout {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
+.chatLayout {
 
-  .mainChatLayoutHeader {
-    background-color: rgba(0, 0, 0, 0%);
-  }
-
-  .mainChatLayoutContent {
-    flex-shrink: 1;
-    height: max-content;
-  }
-
-  .mainChatLayoutFooter {
-    flex-grow: 1;
+  .mainChatLayout {
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    width: 100%;
+    overflow: hidden;
+    height: 100%;
+
+    .mainChatLayoutHeader {
+      background-color: rgba(0, 0, 0, 0%);
+    }
+
+    .mainChatLayoutContent {
+      flex-grow: 1;
+      /* 填充剩余空间 */
+      overflow-y: auto;
+      /* 使内容可滚动 */
+      height: calc(100vh - 300px);
+    }
+
+    .mainChatLayoutFooter {
+      flex-grow: 0;
+      display: flex;
+      align-items: flex-end;
+    }
   }
+
+  .mainChatRightSidebarTrigger {
+    font-size: 18px;
+    color: #999;
+  }
+}
+
+
+//适配手机端
+@media screen and (max-width: 768px) {
+  .chatLayout {
+
+    .mainChatLayout {
+
+      .mainChatLayoutHeader {
+        display: none;
+      }
+
+      .mainChatLayoutFooter {
+        padding: 5px 20px;
+      }
+    }
+
+    .mainChatRightSidebarTrigger {
+      font-size: 0px;
+    }
+
+  }
+
 }

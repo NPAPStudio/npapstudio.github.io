@@ -127,6 +127,7 @@ const SettingModal: React.FC<SettingModalProps> = ({
           <h3>Import</h3>
           <Dragger
             multiple={false}
+            accept=".json, application/json"
             customRequest={(info) => { 
               handleImport(info.file);
               console.log(info.file);
@@ -170,10 +171,10 @@ const SettingModal: React.FC<SettingModalProps> = ({
       onCancel={handleSettingCancel}
       footer={null}
       closeIcon={null}
-      classNames={{ content: styles.settingModalContent }}
-      width={'65%'} // Setting the modal width
+      classNames={{ content: styles.settingModal }}
+      width={Math.min(750, window.innerWidth - 20)}
     >
-      <div style={{ display: 'flex', height: '60vh', padding: 0 }}>
+      <div className={ styles.settingModalMainContainer}>
         <Menu
           mode="inline"
           className={styles.settingModalMenu}
