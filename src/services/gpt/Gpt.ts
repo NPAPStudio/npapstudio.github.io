@@ -1,11 +1,13 @@
 import {
+  defaultGenerateBotModel,
   defaultModel,
+  generateBotPrompt,
   maxDisplayRounds,
   maxMemoryRounds,
 } from '@/config/modelsConfig';
 import { OPENAI } from '@/config/openaiConfig';
 import { v4 as uuidv4 } from 'uuid';
-import { ChatData, MessageData, db } from '../dataManager';
+import { ChatData, ChatType, MessageData, db } from '../dataManager';
 
 class Gpt extends EventTarget {
   id?: string;
@@ -30,33 +32,41 @@ class Gpt extends EventTarget {
     this.botId = botId;
   }
 
-  async init(model?: string) {
+  async init(type: ChatType, model?: string) {
     this.chat = await db.getData('Chats', this.id as string);
-    if (this.chat === null) {
+    if (this.chat === null || this.chat === undefined) {
       this.chat = {
         id: this.id as string,
-        title: '',
+        title: (type === ChatType.GenerateBot) ? 'Generate Bot' : '',
         createdAt: new Date(),
-        systemPrompt: '',
-        model: model || defaultModel,
+        systemPrompt: (type === ChatType.GenerateBot) ? generateBotPrompt : '',
+        type : type || ChatType.Chat ,
+        model: (type === ChatType.GenerateBot) ? (model || defaultGenerateBotModel):(model || defaultModel),
+        maxDisplayRounds: (type === ChatType.GenerateBot) ?100: maxDisplayRounds,
+        maxMemoryRounds: (type === ChatType.GenerateBot) ? 100:maxMemoryRounds,
       };
-      if (this.botId) {
+      if (this.botId && this.chat.type === ChatType.Chat) {
         this.chat.botId = this.botId;
         const bot = await db.getData('Bots', this.botId);
         if (bot) {
           this.chat.systemPrompt = bot.systemPrompt;
           this.chat.model = bot.model;
+          this.chat.maxDisplayRounds = bot.maxDisplayRounds;
+          this.chat.maxMemoryRounds = bot.maxMemoryRounds;
         }
       }
+
       await db.addData('Chats', this.chat);
     } else {
+      this.chat.maxDisplayRounds = this.chat?.maxDisplayRounds || maxDisplayRounds;
+      this.chat.maxMemoryRounds = this.chat?.maxMemoryRounds || maxMemoryRounds;
       this.messages = (
         (await db.getAllDataByIndex(
           'Messages',
           'chatId',
           this.id as string,
         )) as MessageData[]
-      ).slice(-maxDisplayRounds * 2);
+      ).slice(-this.chat.maxDisplayRounds * 2);
     }
   }
 
@@ -98,7 +108,7 @@ class Gpt extends EventTarget {
       isUser: true,
     };
     this.messages.push(data);
-    if (this.messages.length > maxMemoryRounds * 2) {
+    if (this.messages.length > (this.chat?.maxMemoryRounds||maxMemoryRounds) * 2) {
       this.messages.shift();
     }
 
@@ -110,7 +120,7 @@ class Gpt extends EventTarget {
       },
     ];
 
-    this.messages.slice(-maxMemoryRounds * 2).forEach((msg) => {
+    this.messages.slice(-(this.chat?.maxMemoryRounds || maxMemoryRounds) * 2).forEach((msg) => {
       messagesInReq.push({
         role: msg.isUser ? 'user' : 'assistant',
         content: msg.content,
@@ -139,13 +149,20 @@ class Gpt extends EventTarget {
 
     while (true) {
       const { done, value } = await reader!.read();
-      if (done) break;
+      if (done) { 
+        break;
+      }
       const chunk = decoder.decode(value, { stream: true });
       const lines = chunk.split('\n');
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6);
-          if (data === '[DONE]') break;
+          if (data === '[DONE]') { 
+            this.dispatchEvent(
+              new CustomEvent('messageReceivedDone', { detail: assistantMessageContent }),
+            );
+            break;
+          }
           const json = (() => {
             try {
               return JSON.parse(data);
@@ -159,6 +176,7 @@ class Gpt extends EventTarget {
             }
             return null;
           })();
+
           if (content) {
             assistantMessageContent += content;
             this.dispatchEvent(
@@ -176,11 +194,21 @@ class Gpt extends EventTarget {
       isUser: false,
     };
     this.messages.push(assistantData);
-    if (this.messages.length > maxMemoryRounds * 2) {
+    if (this.messages.length > (this.chat?.maxMemoryRounds || maxMemoryRounds) * 2) {
       this.messages.shift();
     }
     await db.addData('Messages', assistantData);
   }
+
+  async deleteMessage(messageId: number) {
+    const message = this.messages.find((msg) => msg.id === messageId);
+    if (!message) {
+      return;
+    }
+    await db.deleteData('Messages', messageId);
+    this.messages = this.messages.filter((msg) => msg.id !== messageId);
+  }
+
 
   async generateChatName() {
     const openaiConfig = JSON.parse(
@@ -228,7 +256,7 @@ class Gpt extends EventTarget {
   }
   static async getChats() {
     try {
-      return (await db.getAllData('Chats')) as ChatData[];
+      return (await db.getAllDataByIndex('Chats','type',ChatType.Chat)) as ChatData[];
     } catch (error) {
       console.error('Error getting chats', error);
       return [];

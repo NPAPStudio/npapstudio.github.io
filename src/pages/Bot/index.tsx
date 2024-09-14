@@ -1,64 +1,122 @@
-import { modelOptions } from '@/config/modelsConfig';
-import Bot from '@/services/gpt/Bot';
-import {
-  ProFormGroup,
-  ProFormInstance,
-  ProFormSelect,
-  ProFormSlider,
-} from '@ant-design/pro-components';
-import {
-  ProForm,
-  ProFormDigit,
-  ProFormText,
-  ProFormTextArea,
-} from '@ant-design/pro-form';
+import { defaultGenerateBotModel, defaultModel, maxDisplayRounds, maxMemoryRounds } from '@/config/modelsConfig';
+
 import { history, useParams } from '@umijs/max';
 import { Button, Flex } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styles from './index.less';
+import Chat, { ChatType } from '@/components/Chat';
+import BotForm from '@/components/Bot/BotForm';
+import Bot from '@/services/gpt/Bot';
+import { BotData } from '@/services/dataManager';
 
 const BotPage: React.FC = () => {
-  const { id: botId } = useParams(); // 获取 botId
-  const [bot, setBot] = useState<Bot>(new Bot(botId));
-  const [readonly, setReadonly] = useState(false);
-  const [botTitle, setBotTitle] = useState('Edit Bot');
-  const formRef = useRef<ProFormInstance>();
+  const { id : IdInSearchParams } = useParams();
 
-  const handleSubmit = async (values: any) => {
-    console.log('values', values);
-    if (botId) {
-      await bot.update(values);
-      setReadonly(true);
+  const getBotId = () => {
+    if (IdInSearchParams !== undefined) {
+      return parseInt(IdInSearchParams);
     } else {
-      await bot.create(values);
-      history.push('/bot/' + bot.id);
+      return undefined;
     }
-  };
-  const updateFormData = async () => {
+  };  
+  const [currentBot, setCurrentBot] = useState<number | undefined>(getBotId());
+  const [botTitle, setBotTitle] = useState('Edit Bot');
+  const [helperChat, setHelperChat] = useState<string>('');
+  const model = defaultGenerateBotModel;
+
+
+  const updateHelperChat = async () => { 
+    const bot = new Bot(currentBot);
+    const data = await bot.get();
+    if (data.helperChatId) {
+      setHelperChat(data.helperChatId);
+    }
+  }
+  useEffect(() => { 
+    if (currentBot) { 
+      updateHelperChat();
+    }
+  }, [currentBot]);
+
+  useEffect(() => {
+    setCurrentBot(getBotId());
+  }, [IdInSearchParams]);
+
+  const onFormUpdate = async (bot: Bot) => {
     if (bot.id) {
       const data = await bot.get();
       setBotTitle(data.title);
-      formRef.current?.setFieldsValue(data);
+      if (helperChat && bot.helperChatId !== helperChat) {
+        data.helperChatId = helperChat;
+        await bot.update(data);
+      }
+      setCurrentBot(bot.id);
     }
-  };
-  useEffect(() => {
-    if (botId) {
-      setReadonly(true);
+  }
+  const chatIdUpdate = async (chatId: string) => {
+    setHelperChat(chatId);
+    if (currentBot) {
+      const bot = new Bot(currentBot);
+      const data = await bot.get();
+      if (helperChat && bot.helperChatId !== helperChat) {
+        data.helperChatId = helperChat;
+        await bot.update(data);
+      }
     }
-    setBot(new Bot(botId));
-  }, [botId]);
-  useEffect(() => {
-    updateFormData();
-  }, [bot]);
+  }
+
+  const handleHelperChatMsg = async (msg: string) => {
+    const regex = /```json\s*([\s\S]*?)\s*```/;
+    const match = msg.match(regex);
+
+    if (match) {
+      const jsonString = match[1];
+      try {
+        const json = JSON.parse(jsonString);
+        if (json) {
+          if (currentBot) {
+            const bot = new Bot(currentBot);
+            const data = await bot.get();
+            data.systemPrompt = json.prompt;
+            data.title = json.title;
+            const botData = await bot.update(data);
+            setCurrentBot(botData.id);
+          } else {
+            const data: BotData = {
+              title: json.title,
+              createdAt: new Date(),
+              model: defaultModel,
+              systemPrompt: json.prompt,
+              frequency_penalty: 0,
+              presence_penalty: 0,
+              temperature: 1,
+              top_p: 1,
+              stop: [],
+              maxDisplayRounds: maxDisplayRounds,
+              maxMemoryRounds: maxMemoryRounds
+            };
+            const bot = new Bot();
+            const botData = await bot.create(data);
+            setCurrentBot(botData.id);
+          }
+        }
+      } catch (error) {
+        console.error("Invalid JSON format:", error);
+      }
+    } else {
+      console.log("No JSON found.");
+    }
+  }
+
   return (
-    <div className={styles.homePage}>
-      <Flex justify="space-between">
-        <h2>{botId ? botTitle : 'New Bot'}</h2>
-        {botId ? (
+    <div className={styles.mainContainter}>
+      <Flex justify="space-between" className={styles.pageTitle}>
+        <h2>{currentBot ? botTitle : 'New Bot'}</h2>
+        {currentBot ? (
           <Button
             type="primary"
             onClick={() => {
-              history.push('/?bot=' + botId);
+              history.push('/?bot=' + currentBot);
             }}
           >
             New Chat
@@ -67,165 +125,17 @@ const BotPage: React.FC = () => {
           ''
         )}
       </Flex>
-      <ProForm
-        onFinish={handleSubmit}
-        formRef={formRef}
-        submitter={{
-          render: (_, dom) => {
-            if (readonly) {
-              return (
-                <Button
-                  type="primary"
-                  onClick={() => {
-                    setReadonly(false);
-                  }}
-                >
-                  Edit
-                </Button>
-              );
-            }
-            return dom;
-          },
-          searchConfig: {
-            submitText: 'Save',
-          },
-        }}
-        readonly={readonly}
-        layout="vertical"
-        grid={true}
-        initialValues={bot}
-        request={async () => {
-          const data = await bot.get();
-          setBotTitle(data.title);
-          return data;
-        }}
-        rowProps={{
-          gutter: [16, 0],
-        }}
-      >
-        <ProFormText
-          name="title"
-          label="Title"
-          width={'md'}
-          colProps={{ md: 12 }}
-        />
-        <ProFormSelect
-          name="model"
-          label="Model"
-          width={'md'}
-          colProps={{ md: 24 }}
-          request={async () => {
-            return modelOptions.map((model) => {
-              return {
-                value: model.key,
-                label: model.label,
-              };
-            });
-          }}
-          rules={[{ required: true, message: '请选择一个模型' }]}
-        />
-        <ProFormTextArea name="systemPrompt" label="System Prompt" />
-        <ProFormGroup size={36} colProps={{ md: 12 }}>
-          <ProFormSlider
-            name="temperature"
-            label="Temperature"
-            colProps={{ md: 18 }}
-            min={0}
-            max={2}
-            step={0.01}
-            marks={{
-              0: '0',
-              2: '2',
-            }}
-          />
-          <ProFormDigit
-            name="temperature"
-            label=" "
-            min={0}
-            colProps={{ md: 4 }}
-            max={2}
-          />
-        </ProFormGroup>
-        <ProFormGroup size={36} colProps={{ md: 12 }}>
-          <ProFormSlider
-            name="frequency_penalty"
-            label="Frequency Penalty"
-            width={'md'}
-            min={-2.0}
-            max={2.0}
-            colProps={{ md: 18 }}
-            step={0.01}
-            marks={{
-              '-2.0': '-2.0',
-              2.0: '2.0',
-            }}
-          />
-          <ProFormDigit
-            name="frequency_penalty"
-            label=" "
-            min={-2.0}
-            colProps={{ md: 4 }}
-            max={2.0}
-          />
-        </ProFormGroup>
-        <ProFormGroup size={36} colProps={{ md: 12 }}>
-          <ProFormSlider
-            name="presence_penalty"
-            label="Presence Penalty"
-            width={'md'}
-            min={-2.0}
-            max={2.0}
-            step={0.01}
-            colProps={{ md: 18 }}
-            marks={{
-              '-2.0': '-2.0',
-              2.0: '2.0',
-            }}
-          />
-          <ProFormDigit
-            name="presence_penalty"
-            label=" "
-            min={-2.0}
-            colProps={{ md: 4 }}
-            max={2.0}
-          />
-        </ProFormGroup>
-        <ProFormGroup size={36} colProps={{ md: 12 }}>
-          <ProFormSlider
-            name="top_p"
-            label="Top P"
-            width={'md'}
-            min={0}
-            max={1}
-            step={0.01}
-            colProps={{ md: 18 }}
-            marks={{
-              0: '0',
-              1: '1',
-            }}
-          />
-          <ProFormDigit
-            name="top_p"
-            label=" "
-            min={0}
-            colProps={{ md: 4 }}
-            max={1}
-          />
-        </ProFormGroup>
+      <Flex className={styles.mainContent}>
+        <div className={styles.GenerateBotChat}>
+          <Chat model={model} chat={helperChat} bot={currentBot} type={ChatType.GenerateBot} chatIdUpdate={chatIdUpdate} messageHandler={handleHelperChatMsg} />
+        </div>
+        <Flex
+          className={styles.GenerateBotForm}
+        >
+          <BotForm botId={currentBot} onUpdate={onFormUpdate} />
+        </Flex>
 
-        <ProFormDigit
-          name="max_tokens"
-          label="Max Tokens"
-          width={'xs'}
-          colProps={{ md: 12 }}
-        />
-        <ProFormText
-          name="stop"
-          label="Stop"
-          width={'md'}
-          colProps={{ md: 12 }}
-        />
-      </ProForm>
+      </Flex>
     </div>
   );
 };

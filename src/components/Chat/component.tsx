@@ -1,7 +1,7 @@
 import ChatSendBox from '@/components/Chat/ChatSendBox';
 import ModelSwitcher from '@/components/Chat/ModelSwitcher';
 import { TerminalIcon } from '@/components/SvgIcon';
-import { MessageData } from '@/services/dataManager';
+import { ChatType, MessageData } from '@/services/dataManager';
 import Bot from '@/services/gpt/Bot';
 import Gpt from '@/services/gpt/Gpt';
 import { useParams, useSearchParams } from '@umijs/max';
@@ -14,14 +14,33 @@ import PromptEditor from './PromptEditor';
 
 const { Header, Footer, Sider, Content } = Layout;
 
-const Chat: React.FC<{ model: string }> = ({ model }) => {
+const Chat: React.FC<{
+  chat?: string,
+  bot?: number,
+  model: string,
+  type: ChatType,
+  chatIdUpdate: (chatId: string) => void,
+  messageHandler?: (msg: string) => void
+}> = ({ chat, bot, model, type, chatIdUpdate, messageHandler }) => {
   const [sending, setSending] = useState(false);
   const [currentModel, setModel] = useState<string>(model);
   const [messages, setMessages] = useState<MessageData[]>([]);
-  const { id: chatId } = useParams(); // 获取 chatId
-  const [searchParams] = useSearchParams();
-  const [botId, setBotId] = useState(searchParams.get('bot'));
-  const [bot, setBot] = useState<Bot>(new Bot(botId));
+  const chatId = chat;
+  // const chatId = (() => {
+  //   if (type === ChatType.Chat) {
+  //     const { id: realChatId } = useParams(); // 获取 chatId
+  //     return realChatId;
+  //   } else if (type === ChatType.GenerateBot) {
+  //     const { id: realBotId } = useParams(); // 获取 botID
+  //     if (realBotId) {
+  //       return 'generate-bot-chat-' + realBotId;
+  //     }
+  //     return '';
+  //   }
+  // })();
+  
+  const [botId, setBotId] = useState(bot);
+  const [currentBot, setCurrentBot] = useState<Bot>(new Bot(botId));
   const gptRef = useRef<Gpt>(new Gpt(chatId));
   const [gpt] = useState<Gpt>(gptRef.current);
   const [currentAssistantMessage, setCurrentAssistantMessage] =
@@ -36,23 +55,23 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
 
   const initBot = async () => {
     try {
-      if (bot) {
+      if (currentBot) {
         if (botId || gpt.chat?.botId) {
-          bot.setId(botId || gpt.chat?.botId);
-          const nowBot = await bot.get();
-          setBot(nowBot);
+          currentBot.setId(botId || gpt.chat?.botId);
+          const nowBot = await currentBot.get();
+          setCurrentBot(nowBot);
         }
       }
     } catch (e) {
-      setBotId(null);
-      setBot(new Bot());
+      setBotId(undefined);
+      setCurrentBot(new Bot());
     }
   };
 
   const initChat = async () => {
     if (chatId) {
       gpt.setId(chatId);
-      await gpt.init(currentModel);
+      await gpt.init(type, currentModel);
       const messages = gpt.messages.map((msg) => msg);
       setModel(gpt.chat?.model as string);
       setMessages(messages);
@@ -60,11 +79,11 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
         await gpt.generateChatName();
       }
       if (gpt.chat?.botId) {
-        setBotId(gpt.chat?.botId.toString());
+        setBotId(gpt.chat?.botId);
         initBot();
       } else {
-        setBotId(null);
-        setBot(new Bot());
+        setBotId(undefined);
+        setCurrentBot(new Bot());
       }
     }
   };
@@ -92,17 +111,34 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
         return updatedMessage;
       });
     };
+    const handleMessageReceivedDone = (event : CustomEvent) => { 
+      if (messageHandler) {
+        messageHandler(event.detail);
+      }
+    }
+
+
 
     gpt.addEventListener(
       'messageReceived',
       handleMessageReceived as EventListener,
     );
 
+    gpt.addEventListener(
+      'messageReceivedDone',
+      handleMessageReceivedDone as EventListener,
+    );
+    
     return () => {
       gpt.removeEventListener(
         'messageReceived',
         handleMessageReceived as EventListener,
       );
+
+          gpt.addEventListener(
+      'messageReceivedDone',
+      handleMessageReceivedDone as EventListener,
+    );
     };
   }, [gpt]);
 
@@ -132,13 +168,16 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
     if (sending) {
       return;
     }
+    if (!msg) { 
+      return;
+    }
     setSending(true);
     let newChat = false;
     if (!gpt.chat) {
       if (botId) {
-        gpt.setBot(parseInt(botId));
+        gpt.setBot(botId);
       }
-      await gpt.init(currentModel);
+      await gpt.init(type,currentModel);
       newChat = true;
     }
     const userMsg: MessageData = {
@@ -158,17 +197,29 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
 
     await gpt.sendMessage(msg);
     setSending(false);
-    if (newChat) {
-      history.push(`/chat/${gpt.id}`);
+
+    if (newChat && chatIdUpdate) {
+      if (gpt.id) { 
+        chatIdUpdate(gpt.id);
+      }
     }
   };
 
+  const handleMsgAction = async (action: string, msgId: number | undefined) => {
+    if (action === 'delete') {
+      if (msgId) {
+        await gpt.deleteMessage(msgId);
+        setMessages(gpt.messages.map((msg) => msg));
+      }
+    }
+  }
+
   return (
-    <Layout className={styles.chatLayout}>
+    <Layout className={`${styles.chatLayout} ${styles[type]}`}>
       <Layout className={styles.mainChatLayout}>
         <Header className={styles.mainChatLayoutHeader}>
           {botId ? (
-            <h2>{bot.title}</h2>
+            <h2>{currentBot.title}</h2>
           ) : (
             <ModelSwitcher
               currentModel={currentModel}
@@ -177,7 +228,7 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
           )}
         </Header>
         <Content className={styles.mainChatLayoutContent}>
-          <MessageList messages={messages} />
+          <MessageList messages={messages} handleMsgAction={handleMsgAction} />
         </Content>
         <Footer className={styles.mainChatLayoutFooter}>
           <ChatSendBox onSend={sendMsg} sending={sending} />
@@ -204,7 +255,7 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
         trigger={sidebarTrigger}
       >
         <PromptEditor
-          prompt={gpt.chat?.systemPrompt || bot.systemPrompt}
+          prompt={gpt.chat?.systemPrompt || currentBot.systemPrompt}
           onPromptChange={() => {}}
         />
       </Sider>
@@ -213,3 +264,4 @@ const Chat: React.FC<{ model: string }> = ({ model }) => {
 };
 
 export default Chat;
+export { ChatType };

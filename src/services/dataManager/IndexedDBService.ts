@@ -1,9 +1,9 @@
 interface StoreConfig {
   name: string;
   keyPath: string;
-  autoIncrement?: boolean;
   indexes?: { name: string; keyPath: string; options?: IDBIndexParameters }[];
   options?: IDBObjectStoreParameters;
+  defaultValues?: { [key: string]: any }; // 新增字段，用于存储字段的默认值
 }
 
 interface IDBConfig {
@@ -30,14 +30,15 @@ class IndexedDBService<T> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.version);
 
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (event) => {
         const db = request.result;
 
         this.stores.forEach((store) => {
+          let objectStore: IDBObjectStore;
+
           if (!db.objectStoreNames.contains(store.name)) {
-            const objectStore = db.createObjectStore(store.name, {
+            objectStore = db.createObjectStore(store.name, {
               keyPath: store.keyPath,
-              autoIncrement: store.autoIncrement,
               ...store.options,
             });
 
@@ -45,6 +46,15 @@ class IndexedDBService<T> {
             store.indexes?.forEach((index) => {
               objectStore.createIndex(index.name, index.keyPath, index.options);
             });
+          } else {
+            objectStore = request.transaction!.objectStore(store.name);
+
+            // 如果已经存在对象存储，开始更新默认值
+            if (store.defaultValues) {
+              this.updateExistingDataWithDefaults(store.name, store.defaultValues, objectStore);
+            }
+
+            this.updateIndexes(store, objectStore);
           }
         });
       };
@@ -61,6 +71,52 @@ class IndexedDBService<T> {
     });
   }
 
+  // 检查并更新现有表的索引
+  private updateIndexes(store: StoreConfig, objectStore: IDBObjectStore) {
+    const existingIndexes = Array.from(objectStore.indexNames);
+
+    // 遍历配置中的索引，检查是否已经存在
+    store.indexes?.forEach((index) => {
+      if (!existingIndexes.includes(index.name)) {
+        // 如果索引不存在，创建新索引
+        objectStore.createIndex(index.name, index.keyPath, index.options);
+        console.log(`Created new index ${index.name} on store ${store.name}`);
+      }
+    });
+  }
+
+  private async updateExistingDataWithDefaults(storeName: string, defaultValues: { [key: string]: any }, objectStore: IDBObjectStore) {
+    const transaction = objectStore.transaction;
+    const cursorRequest = objectStore.openCursor();
+
+    cursorRequest.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest).result;
+      if (cursor) {
+        let needUpdate = false;
+        const updatedData = cursor.value;
+
+        // 检查每个默认值字段，如果该字段不存在或为 undefined，则设置默认值
+        for (const key in defaultValues) {
+          if (updatedData[key] === undefined) {
+            updatedData[key] = defaultValues[key];
+            needUpdate = true;
+          }
+        }
+
+        // 如果有更新，则更新数据
+        if (needUpdate) {
+          cursor.update(updatedData);
+        }
+
+        cursor.continue();
+      }
+    };
+
+    cursorRequest.onerror = () => {
+      console.error('Cursor error when updating default values.');
+    };
+  }
+
   private waitForDb(): Promise<void> {
     return this._initPromise; // 返回Promise，等待数据库初始化完成
   }
@@ -70,6 +126,18 @@ class IndexedDBService<T> {
 
     const transaction = this.db!.transaction(storeName, 'readwrite');
     const objectStore = transaction.objectStore(storeName);
+
+    const dataDefaultValues = this.stores.find((store) => store.name === storeName)?.defaultValues;
+
+    // 如果有默认值，遍历并设置到数据中
+    if (dataDefaultValues && data !== null) {
+      Object.entries(dataDefaultValues).forEach(([key, value]) => {
+        if ((data as any)[key] === undefined) {
+          (data as any)[key] = value;
+        }
+      });
+    }
+
     const request = objectStore.add(data);
 
     return new Promise((resolve, reject) => {
@@ -83,6 +151,7 @@ class IndexedDBService<T> {
       };
     });
   }
+
 
   public async getData(
     storeName: string,
@@ -105,6 +174,7 @@ class IndexedDBService<T> {
     });
   }
 
+
   public async importData(
     data: { storeName: string; data: T[] }[],
   ): Promise<void> {
@@ -115,20 +185,72 @@ class IndexedDBService<T> {
       const transaction = this.db!.transaction(storeName, 'readwrite');
       const objectStore = transaction.objectStore(storeName);
 
+      // 获取与 storeName 对应的默认值
+      const dataDefaultValues = this.stores.find((store) => store.name === storeName)?.defaultValues;
+
       for (let j = 0; j < storeData.length; j++) {
-        const request = objectStore.add(storeData[j]);
-        await new Promise((resolve, reject) => {
-          request.onsuccess = () => {
-            resolve(true);
+        const dataItem = storeData[j];
+
+        // 设置默认值
+        if (dataDefaultValues && typeof dataItem === 'object' && dataItem !== null) {
+          Object.entries(dataDefaultValues).forEach(([key, value]) => {
+            if ((dataItem as any)[key] === undefined) {
+              (dataItem as any)[key] = value;
+            }
+          });
+        }
+
+        // 获取 keyPath 并检查类型
+        const keyPath = objectStore.keyPath;
+
+        let keyValue: any;
+        if (typeof keyPath === 'string') {
+          keyValue = (dataItem as any)[keyPath];
+        } else if (Array.isArray(keyPath)) {
+          // 如果 keyPath 是数组，则生成复合主键值 (需要根据实际业务需求调整)
+          keyValue = keyPath.map(kp => (dataItem as any)[kp]);
+        } else {
+          throw new Error(`Invalid keyPath for store ${storeName}`);
+        }
+
+        // 首先尝试获取现有数据（通过主键）
+        const getRequest = objectStore.get(keyValue);
+
+        await new Promise<void>((resolve, reject) => {
+          getRequest.onsuccess = () => {
+            const existingData = getRequest.result;
+
+            if (existingData) {
+              // 如果数据存在，执行更新
+              const updateRequest = objectStore.put(dataItem);
+              updateRequest.onsuccess = () => {
+                resolve();
+              };
+              updateRequest.onerror = () => {
+                reject(updateRequest.error);
+              };
+            } else {
+              // 如果数据不存在，执行新增
+              const addRequest = objectStore.add(dataItem);
+              addRequest.onsuccess = () => {
+                resolve();
+              };
+              addRequest.onerror = () => {
+                reject(addRequest.error);
+              };
+            }
           };
 
-          request.onerror = () => {
-            reject(request.error);
+          getRequest.onerror = () => {
+            reject(getRequest.error);
           };
         });
       }
     }
   }
+
+
+
 
   public async exportData() {
     const data = [];

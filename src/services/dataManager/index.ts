@@ -1,12 +1,21 @@
 import IndexedDBService from './IndexedDBService';
 // 定义数据类型
+
+enum ChatType {
+  Chat = "Chat",
+  GenerateBot = "GenerateBot",
+}
+
 interface ChatData {
   id: string;
   title: string;
   createdAt: Date;
   systemPrompt: string;
   model: string;
+  type: ChatType;
   botId?: number;
+  maxDisplayRounds?: number;
+  maxMemoryRounds?: number;
 }
 interface BotData {
   id?: number;
@@ -20,6 +29,9 @@ interface BotData {
   temperature?: number;
   top_p?: number;
   stop?: string[];
+  maxDisplayRounds?: number;
+  maxMemoryRounds?: number;
+  helperChatId?: string;
 }
 interface BotHistoryData {
   id?: number;
@@ -35,6 +47,8 @@ interface BotHistoryData {
   temperature?: number;
   top_p?: number;
   stop?: string[];
+  maxDisplayRounds?: number;
+  maxMemoryRounds?: number;
 }
 interface MessageData {
   id?: number;
@@ -46,16 +60,27 @@ interface MessageData {
 // 初始化 IndexedDB 服务
 const dbConfig = {
   dbName: 'GptPlayground',
-  version: 4,
+  version: 6,
   stores: [
-    { name: 'Chats', keyPath: 'id', options: { autoIncrement: false } },
+    {
+      name: 'Chats',
+      keyPath: 'id',
+      options: { autoIncrement: false },
+      defaultValues: { type: ChatType.Chat },
+      indexes: [{ name: 'type', keyPath: 'type' }],
+
+    },
     {
       name: 'Messages',
       keyPath: 'id',
       options: { autoIncrement: true },
       indexes: [{ name: 'chatId', keyPath: 'chatId' }],
     },
-    { name: 'Bots', keyPath: 'id', options: { autoIncrement: true } },
+    {
+      name: 'Bots',
+      keyPath: 'id',
+      options: { autoIncrement: true }
+    },
     {
       name: 'BotHistories',
       keyPath: 'id',
@@ -67,4 +92,4 @@ const dbConfig = {
 
 const db = new IndexedDBService<any>(dbConfig);
 
-export { BotData, BotHistoryData, ChatData, MessageData, db, dbConfig };
+export { BotData, ChatType, BotHistoryData, ChatData, MessageData, db, dbConfig };

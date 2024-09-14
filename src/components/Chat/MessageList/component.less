@@ -14,13 +14,34 @@
       max-width: 80%;
       margin-bottom: 20px;
       min-height: 42px;
-      overflow-x: hidden;
       word-break: break-all;
       word-wrap: break-word;
+      position: relative;
+    }
+
+    .moreActionBtn {
+      position: absolute;
+      right: -24px;
+      bottom: 0;
+      display: block;
+      width: 20px;
+      height: 20px;
+      text-align: center;
+      line-height: 20px;
+      font-size: 16px;
+      cursor: pointer;
+
+      &:hover {
+        color: #1890ff;
+      }
     }
 
     .chatContent.userContent {
       background-color: aliceblue;
+
+      .moreActionBtn {
+        left: -24px;
+      }
     }
 
     .chatContent.assistantContent {

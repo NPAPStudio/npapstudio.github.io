@@ -1,11 +1,25 @@
 import { MessageData } from '@/services/dataManager';
-import { UserOutlined } from '@ant-design/icons';
-import { Avatar, Flex } from 'antd';
+import { DeleteOutlined, EllipsisOutlined, UserOutlined } from '@ant-design/icons';
+import { Avatar, Button, Dropdown, Flex, Menu, MenuProps } from 'antd';
 import { useEffect } from 'react';
 import MarkdownContent from '../MarkdownContent';
 import styles from './component.less';
 
-export default function MessageList({ messages }: { messages: MessageData[] }) {
+export default function MessageList({ messages, handleMsgAction }: { messages: MessageData[], handleMsgAction?: (action: string, msgId: number | undefined) => void }) {
+
+  const handleAction = (action: string, msgId: number | undefined) => {
+    if (handleMsgAction) { 
+      handleMsgAction(action, msgId);
+    }
+  }
+  const moreActionItems: MenuProps['items'] = [
+    {
+      icon: < DeleteOutlined />,
+      key: 'delete',
+      danger: true,
+      label: 'Delete',
+    },
+  ];
   useEffect(() => {
     const mainMsgList = document.querySelector(`.${styles.mainMsgList}`);
     if (mainMsgList) {
@@ -22,13 +36,26 @@ export default function MessageList({ messages }: { messages: MessageData[] }) {
           key={index}
           className={styles.chatItem}
         >
-          {msg.isUser ? '' : <Avatar size={36} icon={<UserOutlined />} className={ styles.avatar} />}
+          {msg.isUser ? '' : <Avatar size={36} icon={<UserOutlined />} className={styles.avatar} />}
           <span
-            className={`${styles.chatContent} ${
-              msg.isUser ? styles.userContent : styles.assistantContent
-            }`}
+            className={`${styles.chatContent} ${msg.isUser ? styles.userContent : styles.assistantContent
+              }`}
           >
             <MarkdownContent content={msg.content} />
+
+            <Dropdown
+              menu={{
+                selectable: false,
+                onClick: (e) => { 
+                  handleAction(e.key, msg.id);
+                },
+                items: moreActionItems
+              }}
+              trigger={['hover']}
+              className={styles.moreActionBtn}
+            >
+              <Button icon={<EllipsisOutlined />} size="small" type="text" />
+            </Dropdown>
           </span>
         </Flex>
       ))}

@@ -1,4 +1,4 @@
-import { defaultModel } from '@/config/modelsConfig';
+import { defaultModel, maxDisplayRounds, maxMemoryRounds } from '@/config/modelsConfig';
 import { BotData, db } from '../dataManager';
 class Bot {
   id?: number;
@@ -6,12 +6,15 @@ class Bot {
   createdAt?: Date;
   systemPrompt?: string;
   model?: string;
+  helperChatId?: string;
   frequency_penalty?: number;
   presence_penalty?: number;
   max_tokens?: number;
   temperature?: number;
   top_p?: number;
   stop?: string[];
+  maxDisplayRounds?: number;
+  maxMemoryRounds?: number;
   constructor(id?: any) {
     if (id) {
       this.id = parseInt(id);
@@ -25,6 +28,8 @@ class Bot {
       this.temperature = 1;
       this.top_p = 1;
       this.stop = [];
+      this.maxDisplayRounds = maxDisplayRounds;
+      this.maxMemoryRounds = maxMemoryRounds;
     }
   }
 
@@ -70,6 +75,8 @@ class Bot {
     this.temperature = botData?.temperature || 1;
     this.top_p = botData?.top_p || 1;
     this.stop = botData?.stop || [];
+    this.maxDisplayRounds = botData?.maxDisplayRounds || maxDisplayRounds;
+    this.maxMemoryRounds = botData?.maxMemoryRounds || maxMemoryRounds;
     return botData;
   }
 

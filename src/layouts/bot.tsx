@@ -64,7 +64,6 @@ export default () => {
   };
 
   const menuItemRender = (item: any, dom: React.ReactNode) => {
-    console.log(dom);
     return <BotListItem item={item} onDelete={handleDeleteBot}></BotListItem>;
   };
   const menuFooterRender = () => {
@@ -74,6 +73,7 @@ export default () => {
   return (
     <ProLayout
       siderWidth={240}
+      contentStyle={{ padding: 0, height: '100%',minHeight:'100%',display:'flex',flex:1 }}
       menuHeaderRender={menuHeaderRender}
       menuDataRender={menuDataRender}
       menuItemRender={menuItemRender}
