@@ -1,9 +1,12 @@
 // src/config/modelsConfig.ts
 export const modelOptions = [
-  { key: 'gpt-4o-mini', label: 'GPT-4o mini' },
+   { key: 'gpt-4o-mini', label: 'GPT-4o mini' },
+   { key: 'o1-mini', label: 'O1 Mini' },
+   { key: 'o1-preview', label: 'O1 Preview' },
   { key: 'chatgpt-4o-latest', label: 'GPT-4o' },
   { key: 'gpt-4', label: 'GPT-4' },
   { key: 'gpt-3.5-turbo-0125', label: 'GPT-3.5 Turbo' },
+  
 ];
 
 export const defaultModel = 'gpt-4o-mini';
