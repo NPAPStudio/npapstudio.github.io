@@ -40,10 +40,10 @@ class Gpt extends EventTarget {
         title: (type === ChatType.GenerateBot) ? 'Generate Bot' : '',
         createdAt: new Date(),
         systemPrompt: (type === ChatType.GenerateBot) ? generateBotPrompt : '',
-        type : type || ChatType.Chat ,
-        model: (type === ChatType.GenerateBot) ? (model || defaultGenerateBotModel):(model || defaultModel),
-        maxDisplayRounds: (type === ChatType.GenerateBot) ?100: maxDisplayRounds,
-        maxMemoryRounds: (type === ChatType.GenerateBot) ? 100:maxMemoryRounds,
+        type: type || ChatType.Chat,
+        model: (type === ChatType.GenerateBot) ? (model || defaultGenerateBotModel) : (model || defaultModel),
+        maxDisplayRounds: (type === ChatType.GenerateBot) ? 100 : maxDisplayRounds,
+        maxMemoryRounds: (type === ChatType.GenerateBot) ? 100 : maxMemoryRounds,
       };
       if (this.botId && this.chat.type === ChatType.Chat) {
         this.chat.botId = this.botId;
@@ -108,7 +108,7 @@ class Gpt extends EventTarget {
       isUser: true,
     };
     this.messages.push(data);
-    if (this.messages.length > (this.chat?.maxMemoryRounds||maxMemoryRounds) * 2) {
+    if (this.messages.length > (this.chat?.maxMemoryRounds || maxMemoryRounds) * 2) {
       this.messages.shift();
     }
 
@@ -127,19 +127,35 @@ class Gpt extends EventTarget {
       });
     });
 
+    const requestData = {
+      "url": `${openaiConfig.end_point}/v1/chat/completions`,
+      "method": "POST",
+      "headers": {},
+      body: JSON.stringify({
+        model: this.chat.model,
+        messages: messagesInReq,
+        stream: true,
+      })
+    };
+    if (requestData.url.match('azure')) {
+      requestData.url = openaiConfig.end_point;
+      requestData.headers = {
+        "Content-Type": "application/json",
+        "api-key": openaiConfig.api_key
+      };
+    } else {
+      requestData.headers = {
+        "Content-Type": 'application/json',
+        "Authorization": `Bearer ${openaiConfig.api_key}`,
+      };
+    }
+
     const response = await fetch(
-      `${openaiConfig.end_point}/v1/chat/completions`,
+      requestData.url,
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${openaiConfig.api_key}`,
-        },
-        body: JSON.stringify({
-          model: this.chat.model,
-          messages: messagesInReq,
-          stream: true,
-        }),
+        method: requestData.method,
+        headers: requestData.headers,
+        body: requestData.body,
       },
     );
 
@@ -149,7 +165,7 @@ class Gpt extends EventTarget {
 
     while (true) {
       const { done, value } = await reader!.read();
-      if (done) { 
+      if (done) {
         break;
       }
       const chunk = decoder.decode(value, { stream: true });
@@ -157,7 +173,7 @@ class Gpt extends EventTarget {
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6);
-          if (data === '[DONE]') { 
+          if (data === '[DONE]') {
             this.dispatchEvent(
               new CustomEvent('messageReceivedDone', { detail: assistantMessageContent }),
             );
@@ -233,19 +249,35 @@ class Gpt extends EventTarget {
       content: allContent,
     });
 
+    const requestData = {
+      "url": `${openaiConfig.end_point}/v1/chat/completions`,
+      "method": "POST",
+      "headers": {
+      },
+      body: JSON.stringify({
+        model: OPENAI.titleGeneratorModel,
+        messages: messagesInReq,
+        stream: false,
+      })
+    };
+    if (requestData.url.match('azure')) {
+      requestData.url = openaiConfig.end_point;
+      requestData.headers = {
+        "Content-Type": "application/json",
+        "api-key": openaiConfig.api_key
+      };
+    } else {
+      requestData.headers = {
+        "Content-Type": 'application/json',
+        "Authorization": `Bearer ${openaiConfig.api_key}`,
+      };
+    }
     const response = await fetch(
-      `${openaiConfig.end_point}/v1/chat/completions`,
+      requestData.url,
       {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${openaiConfig.api_key}`,
-        },
-        body: JSON.stringify({
-          model: OPENAI.titleGeneratorModel,
-          messages: messagesInReq,
-          stream: false,
-        }),
+        method: requestData.method,
+        headers: requestData.headers,
+        body: requestData.body,
       },
     );
     const responseBody = await response.json();
@@ -256,7 +288,7 @@ class Gpt extends EventTarget {
   }
   static async getChats() {
     try {
-      return (await db.getAllDataByIndex('Chats','type',ChatType.Chat)) as ChatData[];
+      return (await db.getAllDataByIndex('Chats', 'type', ChatType.Chat)) as ChatData[];
     } catch (error) {
       console.error('Error getting chats', error);
       return [];
