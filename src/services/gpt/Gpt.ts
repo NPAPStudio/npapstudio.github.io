@@ -7,7 +7,7 @@ import {
 } from '@/config/modelsConfig';
 import { OPENAI } from '@/config/openaiConfig';
 import { v4 as uuidv4 } from 'uuid';
-import { ChatData, ChatType, MessageData, db } from '../dataManager';
+import { ChatData, ChatType, ContentPart, MessageData, db } from '../dataManager';
 
 class Gpt extends EventTarget {
   id?: string;
@@ -32,7 +32,7 @@ class Gpt extends EventTarget {
     this.botId = botId;
   }
 
-  async init(type: ChatType, model?: string) {
+  async init(type?: ChatType, model?: string) {
     this.chat = await db.getData('Chats', this.id as string);
     if (this.chat === null || this.chat === undefined) {
       this.chat = {
@@ -94,7 +94,7 @@ class Gpt extends EventTarget {
     await db.deleteDataByIndex('Messages', 'chatId', this.chat.id);
   }
 
-  async sendMessage(message: string) {
+  async sendMessage(message: string | Array<ContentPart>) {
     const openaiConfig = JSON.parse(
       localStorage.getItem('openai_config') || '{}',
     );
@@ -107,13 +107,20 @@ class Gpt extends EventTarget {
       createdAt: new Date(),
       isUser: true,
     };
+    const userMessageId = await db.addData('Messages', data);
+
+    data.id = parseInt(userMessageId.toString());
+
     this.messages.push(data);
     if (this.messages.length > (this.chat?.maxMemoryRounds || maxMemoryRounds) * 2) {
       this.messages.shift();
     }
 
-    await db.addData('Messages', data);
-    let messagesInReq = [
+    this.dispatchEvent(
+      new CustomEvent('userMessageId', { detail: userMessageId }),
+    );
+
+    let messagesInReq:Array<Object> = [
       {
         role: 'system',
         content: this.chat.systemPrompt,
@@ -121,10 +128,11 @@ class Gpt extends EventTarget {
     ];
 
     this.messages.slice(-(this.chat?.maxMemoryRounds || maxMemoryRounds) * 2).forEach((msg) => {
-      messagesInReq.push({
+      const data = {
         role: msg.isUser ? 'user' : 'assistant',
         content: msg.content,
-      });
+      };
+      messagesInReq.push(data);
     });
 
     const requestData = {
@@ -142,6 +150,12 @@ class Gpt extends EventTarget {
       requestData.headers = {
         "Content-Type": "application/json",
         "api-key": openaiConfig.api_key
+      };
+    } else if (requestData.url.match('cloudsway')) {
+      requestData.url = `${openaiConfig.end_point}/chat/completions`;
+      requestData.headers = {
+        "Content-Type": 'application/json',
+        "Authorization": `Bearer ${openaiConfig.api_key}`,
       };
     } else {
       requestData.headers = {
@@ -209,11 +223,17 @@ class Gpt extends EventTarget {
       createdAt: new Date(),
       isUser: false,
     };
+    let assistantMessageId = await db.addData('Messages', assistantData);
+
+    assistantData.id = parseInt(assistantMessageId.toString());
+
     this.messages.push(assistantData);
     if (this.messages.length > (this.chat?.maxMemoryRounds || maxMemoryRounds) * 2) {
       this.messages.shift();
     }
-    await db.addData('Messages', assistantData);
+    this.dispatchEvent(
+      new CustomEvent('assistantMessageId', { detail: assistantMessageId }),
+    );
   }
 
   async deleteMessage(messageId: number) {
@@ -265,6 +285,12 @@ class Gpt extends EventTarget {
       requestData.headers = {
         "Content-Type": "application/json",
         "api-key": openaiConfig.api_key
+      };
+    } else if (requestData.url.match('cloudsway')) { 
+      requestData.url = `${openaiConfig.end_point}/chat/completions`;
+      requestData.headers = {
+        "Content-Type": 'application/json',
+        "Authorization": `Bearer ${openaiConfig.api_key}`,
       };
     } else {
       requestData.headers = {

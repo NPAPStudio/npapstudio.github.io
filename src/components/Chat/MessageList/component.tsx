@@ -8,7 +8,8 @@ import styles from './component.less';
 export default function MessageList({ messages, handleMsgAction }: { messages: MessageData[], handleMsgAction?: (action: string, msgId: number | undefined) => void }) {
 
   const handleAction = (action: string, msgId: number | undefined) => {
-    if (handleMsgAction) { 
+    console.log(action, msgId);
+    if (handleMsgAction) {
       handleMsgAction(action, msgId);
     }
   }
@@ -41,12 +42,23 @@ export default function MessageList({ messages, handleMsgAction }: { messages: M
             className={`${styles.chatContent} ${msg.isUser ? styles.userContent : styles.assistantContent
               }`}
           >
-            <MarkdownContent content={msg.content} />
+            { msg.id }
+            {
+              typeof (msg.content) === 'string' ?
+                <MarkdownContent content={msg.content} /> :
+                msg.content.map((content) => {
+                  if (content.type === "text") {
+                    return <MarkdownContent content={content.text} />
+                  } else if (content.type === "image_url") { 
+                    return <img src={ content.image_url.url} />
+                  }
+                })
+            }
 
             <Dropdown
               menu={{
                 selectable: false,
-                onClick: (e) => { 
+                onClick: (e) => {
                   handleAction(e.key, msg.id);
                 },
                 items: moreActionItems

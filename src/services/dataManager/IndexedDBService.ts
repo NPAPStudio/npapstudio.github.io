@@ -36,6 +36,9 @@ class IndexedDBService<T> {
         this.stores.forEach((store) => {
           let objectStore: IDBObjectStore;
 
+
+
+
           if (!db.objectStoreNames.contains(store.name)) {
             objectStore = db.createObjectStore(store.name, {
               keyPath: store.keyPath,
@@ -47,8 +50,7 @@ class IndexedDBService<T> {
               objectStore.createIndex(index.name, index.keyPath, index.options);
             });
           } else {
-            objectStore = request.transaction!.objectStore(store.name);
-
+            objectStore = request.transaction!.objectStore(store.name);            
             // 如果已经存在对象存储，开始更新默认值
             if (store.defaultValues) {
               this.updateExistingDataWithDefaults(store.name, store.defaultValues, objectStore);

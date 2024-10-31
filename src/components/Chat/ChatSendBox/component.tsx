@@ -1,5 +1,5 @@
-import { MinusOutlined, SendOutlined } from '@ant-design/icons';
-import { Button, Flex, Input } from 'antd';
+import { CloseOutlined, MinusOutlined, PictureOutlined, SendOutlined } from '@ant-design/icons';
+import { Button, Flex, Input, Upload, UploadProps } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styles from './component.less';
 
@@ -10,11 +10,12 @@ export default function ChatSendBox({
   sending,
   onHeightChanged,
 }: {
-  onSend: (message: string) => void;
+  onSend: (message: string, img?:string) => void;
   sending: boolean;
   onHeightChanged?: (height: number) => void;
 }) {
   const [value, setValue] = useState('');
+  const [imgUrl, setImgUrl] = useState('');
   const [isComposing, setIsComposing] = useState(false); // 新增：用来判断是否正在使用输入法
 
   useEffect(() => {}, [sending]);
@@ -31,8 +32,9 @@ export default function ChatSendBox({
     if (sending) {
       return;
     }
-    onSend(value);
+    onSend(value,imgUrl);
     setValue('');
+    setImgUrl('');
   };
 
   const handleTextareaKeyDown = (
@@ -62,9 +64,51 @@ export default function ChatSendBox({
     setIsComposing(false); // 输入法输入结束
   };
 
+  const removeImg = () => { 
+    setImgUrl('');
+  }
+  const handleImageUpload = (info: any) => {
+    if (info.file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64Url = e.target?.result;
+        // 这里可以执行其他操作，比如设置状态或显示图片
+        if (typeof(base64Url) === 'string') { 
+          setImgUrl(base64Url);
+        }
+
+      };
+      reader.readAsDataURL(info.file);
+    };
+  }
+
   return (
     <Flex style={{ width: '100%' }} justify="center" align="center">
       <Flex className={styles.sendBoxWrapper}>
+        {!imgUrl ?
+          '' :
+          <div className={styles.uploadedImg}>
+            <img src={imgUrl} />
+            <Button
+              className={styles.removeImg}
+              type="default"
+              icon={<CloseOutlined />}
+              shape="circle"
+              onClick={removeImg}
+            />
+          </div>}
+        <Upload
+          beforeUpload={() => false} // 禁用上传到服务器
+          onChange={handleImageUpload}
+          showUploadList={false} // 设置为 false，如果不想显示上传列表
+        >
+          <Button
+            type="default"
+            icon={<PictureOutlined />}
+            shape="circle"
+          />
+        </Upload>
+
         <TextArea
           rows={1}
           placeholder="请输入内容"

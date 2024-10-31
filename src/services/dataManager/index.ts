@@ -50,10 +50,38 @@ interface BotHistoryData {
   maxDisplayRounds?: number;
   maxMemoryRounds?: number;
 }
+
+// 定义文本内容部分
+interface TextContentPart {
+  type: 'text'; // 内容类型
+  text: string; // 文本内容
+}
+
+// 定义图像内容部分
+interface ImageContentPart {
+  type: 'image_url'; // 内容类型
+  image_url: {
+    url: string; // 图像的 URL 或 base64 编码的图像数据
+    detail?: string; // 细节描述，任选，默认为 auto
+  };
+}
+
+// 定义音频内容部分
+interface AudioContentPart {
+  type: 'input_audio'; // 内容类型
+  input_audio: {
+    data: string; // base64 编码的音频数据
+    format: 'wav' | 'mp3'; // 音频格式
+  };
+}
+
+// 定义内容类型联合
+type ContentPart = TextContentPart | ImageContentPart | AudioContentPart;
+
 interface MessageData {
   id?: number;
   chatId: string;
-  content: string;
+  content: string | Array<ContentPart>;
   createdAt: Date;
   isUser: boolean;
 }
@@ -92,4 +120,4 @@ const dbConfig = {
 
 const db = new IndexedDBService<any>(dbConfig);
 
-export { BotData, ChatType, BotHistoryData, ChatData, MessageData, db, dbConfig };
+export { BotData, ChatType, BotHistoryData, ChatData, MessageData, ContentPart, db, dbConfig };

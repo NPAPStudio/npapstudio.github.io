@@ -5,6 +5,37 @@
   background-color: #ededed;
   justify-content: space-between;
   align-items: end;
+  position: relative;
+
+  .uploadedImg {
+    position: absolute;
+    left: 0;
+    top: -120px;
+    height: 110px;
+    padding: 5px;
+    background-color: #ededed;
+    border-radius: 4px;
+
+    img {
+      height: 100px;
+      z-index: 10;
+    }
+
+    .removeImg {
+      position: absolute;
+      z-index: 12;
+      top: 50%;
+      left: 50%;
+      margin-left: -16px;
+      margin-top: -16px;
+      background-color: rgba(0, 0, 0, 0.2);
+      border: none;
+      color : rgba(255, 255, 255, 0.6);
+      &:hover {
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+    }
+  }
 }
 
 .sendBoxWrapper textarea {

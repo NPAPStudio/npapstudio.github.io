@@ -38,7 +38,7 @@ const Chat: React.FC<{
   //     return '';
   //   }
   // })();
-  
+
   const [botId, setBotId] = useState(bot);
   const [currentBot, setCurrentBot] = useState<Bot>(new Bot(botId));
   const gptRef = useRef<Gpt>(new Gpt(chatId));
@@ -102,19 +102,45 @@ const Chat: React.FC<{
         const updatedMessage = prevMessage
           ? { ...prevMessage, content: prevMessage.content + event.detail }
           : {
-              chatId: gpt.id as string,
-              content: event.detail,
-              createdAt: new Date(),
-              isUser: false,
-            };
+            chatId: gpt.id as string,
+            content: event.detail,
+            createdAt: new Date(),
+            isUser: false,
+          };
 
         return updatedMessage;
       });
     };
-    const handleMessageReceivedDone = (event : CustomEvent) => { 
+    const handleMessageReceivedDone = (event: CustomEvent) => {
       if (messageHandler) {
         messageHandler(event.detail);
       }
+    }
+    const handleAssistantMessageId = (event: CustomEvent) => {
+      setCurrentAssistantMessage((prevMessage) => {
+        const updatedMessage = prevMessage
+          ? { ...prevMessage, id: event.detail }
+          : {
+            chatId: gpt.id as string,
+            content: event.detail,
+            createdAt: new Date(),
+            isUser: false,
+          };
+
+        return updatedMessage;
+      });
+    }
+    const handleUserMessageId = (event: CustomEvent) => {
+      setMessages((prevMessages) => {
+        return prevMessages.map(msg => {
+          if (!msg.id && msg.isUser) {
+            return { ...msg, id: event.detail };
+          } else {
+            return msg;
+          }
+        })
+      });
+
     }
 
 
@@ -128,17 +154,33 @@ const Chat: React.FC<{
       'messageReceivedDone',
       handleMessageReceivedDone as EventListener,
     );
-    
+
+    gpt.addEventListener(
+      'userMessageId',
+      handleUserMessageId as EventListener,
+    )
+    gpt.addEventListener(
+      'assistantMessageId',
+      handleAssistantMessageId as EventListener,
+    )
     return () => {
       gpt.removeEventListener(
         'messageReceived',
         handleMessageReceived as EventListener,
       );
 
-          gpt.addEventListener(
-      'messageReceivedDone',
-      handleMessageReceivedDone as EventListener,
-    );
+      gpt.removeEventListener(
+        'messageReceivedDone',
+        handleMessageReceivedDone as EventListener,
+      );
+      gpt.removeEventListener(
+        'userMessageId',
+        handleUserMessageId as EventListener,
+      )
+      gpt.removeEventListener(
+        'assistantMessageId',
+        handleAssistantMessageId as EventListener,
+      )
     };
   }, [gpt]);
 
@@ -164,11 +206,11 @@ const Chat: React.FC<{
     <TerminalIcon className={styles.mainChatRightSidebarTrigger} />
   );
 
-  const sendMsg = async (msg: string) => {
+  const sendMsg = async (msg: string, img?: string) => {
     if (sending) {
       return;
     }
-    if (!msg) { 
+    if (!msg && !img) {
       return;
     }
     setSending(true);
@@ -177,29 +219,42 @@ const Chat: React.FC<{
       if (botId) {
         gpt.setBot(botId);
       }
-      await gpt.init(type,currentModel);
+      await gpt.init(type, currentModel);
       newChat = true;
     }
     const userMsg: MessageData = {
       chatId: gpt.id as string,
-      content: msg,
+      content: [
+        {
+          "type": "text",
+          "text": msg
+        }
+      ],
       createdAt: new Date(),
       isUser: true,
     };
+    if (img && typeof (userMsg.content) === 'object') {
+      userMsg.content.push({
+        "type": "image_url",
+        "image_url": {
+          "detail": "low",
+          "url": img
+        }
+      });
+    }
     setMessages((prevMessages) => [...prevMessages, userMsg]);
 
     setCurrentAssistantMessage({
       chatId: gpt.id as string,
-      content: '',
+      content: [],
       createdAt: new Date(),
       isUser: false,
     });
-
-    await gpt.sendMessage(msg);
+    await gpt.sendMessage(userMsg.content);
     setSending(false);
 
     if (newChat && chatIdUpdate) {
-      if (gpt.id) { 
+      if (gpt.id) {
         chatIdUpdate(gpt.id);
       }
     }
@@ -256,7 +311,7 @@ const Chat: React.FC<{
       >
         <PromptEditor
           prompt={gpt.chat?.systemPrompt || currentBot.systemPrompt}
-          onPromptChange={() => {}}
+          onPromptChange={() => { }}
         />
       </Sider>
     </Layout>
