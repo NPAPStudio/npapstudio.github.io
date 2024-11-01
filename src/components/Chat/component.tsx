@@ -23,21 +23,11 @@ const Chat: React.FC<{
   messageHandler?: (msg: string) => void
 }> = ({ chat, bot, model, type, chatIdUpdate, messageHandler }) => {
   const [sending, setSending] = useState(false);
+  const [usage, setUsage] = useState('');
   const [currentModel, setModel] = useState<string>(model);
   const [messages, setMessages] = useState<MessageData[]>([]);
   const chatId = chat;
-  // const chatId = (() => {
-  //   if (type === ChatType.Chat) {
-  //     const { id: realChatId } = useParams(); // 获取 chatId
-  //     return realChatId;
-  //   } else if (type === ChatType.GenerateBot) {
-  //     const { id: realBotId } = useParams(); // 获取 botID
-  //     if (realBotId) {
-  //       return 'generate-bot-chat-' + realBotId;
-  //     }
-  //     return '';
-  //   }
-  // })();
+
 
   const [botId, setBotId] = useState(bot);
   const [currentBot, setCurrentBot] = useState<Bot>(new Bot(botId));
@@ -87,6 +77,14 @@ const Chat: React.FC<{
       }
     }
   };
+
+  useEffect(() => {
+    console.log("usage:", usage);
+    const lastUsage = localStorage.getItem("lastUsage");
+    if (!usage && lastUsage) {
+      setUsage(lastUsage);
+    }
+  }, [usage]);
 
   useEffect(() => {
     initChat();
@@ -142,6 +140,12 @@ const Chat: React.FC<{
       });
 
     }
+    const handleUsageReceived = (event: CustomEvent) => { 
+      console.log(event.detail);
+      const currentUsage = `Tokens: ${event.detail.prompt_tokens} / ${event.detail.completion_tokens} / ${event.detail.total_tokens}`
+      localStorage.setItem("lastUsage", currentUsage);
+      setUsage(currentUsage);
+    }
 
 
 
@@ -163,6 +167,10 @@ const Chat: React.FC<{
       'assistantMessageId',
       handleAssistantMessageId as EventListener,
     )
+    gpt.addEventListener(
+      'usageReceived',
+      handleUsageReceived as EventListener,
+    );
     return () => {
       gpt.removeEventListener(
         'messageReceived',
@@ -181,6 +189,10 @@ const Chat: React.FC<{
         'assistantMessageId',
         handleAssistantMessageId as EventListener,
       )
+      gpt.removeEventListener(
+        'usageReceived',
+        handleUsageReceived as EventListener,
+      );
     };
   }, [gpt]);
 
@@ -288,6 +300,7 @@ const Chat: React.FC<{
         <Footer className={styles.mainChatLayoutFooter}>
           <ChatSendBox onSend={sendMsg} sending={sending} />
         </Footer>
+        <div className={styles.usageTips}>{ usage }</div>
       </Layout>
       <Sider
         style={{

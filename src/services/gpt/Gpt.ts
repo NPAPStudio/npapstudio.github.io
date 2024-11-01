@@ -143,6 +143,9 @@ class Gpt extends EventTarget {
         model: this.chat.model,
         messages: messagesInReq,
         stream: true,
+        stream_options: {
+          include_usage : true
+        }
       })
     };
     if (requestData.url.match('azure')) {
@@ -201,9 +204,15 @@ class Gpt extends EventTarget {
             }
           })();
           const content = (() => {
+            if (json?.usage) {
+              this.dispatchEvent(
+                new CustomEvent('usageReceived', { detail: json.usage }),
+              );
+            }
             if (json?.choices) {
               return json?.choices[0]?.delta?.content;
             }
+
             return null;
           })();
 

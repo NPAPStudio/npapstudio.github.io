@@ -42,7 +42,6 @@ export default function MessageList({ messages, handleMsgAction }: { messages: M
             className={`${styles.chatContent} ${msg.isUser ? styles.userContent : styles.assistantContent
               }`}
           >
-            { msg.id }
             {
               typeof (msg.content) === 'string' ?
                 <MarkdownContent content={msg.content} /> :
