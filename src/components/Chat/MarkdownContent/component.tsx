@@ -2,6 +2,8 @@ import { CopyOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import Markdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { solarizedDarkAtom } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import styles from './component.less';
@@ -60,6 +62,8 @@ const MarkdownContent: React.FC<MarkdownContentProps> = ({ content }) => {
           );
         },
       }}
+      remarkPlugins={[remarkMath]}
+      rehypePlugins={[rehypeKatex]}
     >
       {content}
     </Markdown>
