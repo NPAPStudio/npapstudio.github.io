@@ -120,12 +120,13 @@ class Gpt extends EventTarget {
       new CustomEvent('userMessageId', { detail: userMessageId }),
     );
 
-    let messagesInReq:Array<Object> = [
-      {
+    let messagesInReq:Array<Object> = [];
+    if (this.chat.systemPrompt) { 
+      messagesInReq.push({
         role: 'system',
         content: this.chat.systemPrompt,
-      },
-    ];
+      });
+    }
 
     this.messages.slice(-(this.chat?.maxMemoryRounds || maxMemoryRounds) * 2).forEach((msg) => {
       const data = {
@@ -134,6 +135,7 @@ class Gpt extends EventTarget {
       };
       messagesInReq.push(data);
     });
+
 
     const requestData = {
       "url": `${openaiConfig.end_point}/v1/chat/completions`,
